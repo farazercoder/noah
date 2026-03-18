@@ -1,0 +1,86 @@
+-- CardVault Supabase Schema
+-- Run this in the Supabase SQL editor to set up the database
+
+-- Cards table
+CREATE TABLE cards (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id UUID REFERENCES auth.users(id),
+  local_id TEXT NOT NULL,
+  player_name TEXT NOT NULL,
+  year TEXT,
+  set_name TEXT,
+  card_number TEXT,
+  sport TEXT NOT NULL DEFAULT 'other',
+  edition TEXT DEFAULT 'base',
+  edition_details TEXT,
+  condition TEXT DEFAULT 'raw',
+  purchase_price DECIMAL(10,2),
+  scan_date TIMESTAMPTZ DEFAULT NOW(),
+  image_uri TEXT,
+  thumbnail_uri TEXT,
+  is_watchlist BOOLEAN DEFAULT FALSE,
+  is_owned BOOLEAN DEFAULT TRUE,
+  needs_review BOOLEAN DEFAULT FALSE,
+  review_reason TEXT,
+  notes TEXT,
+  last_sold_price DECIMAL(10,2),
+  average_last_10 DECIMAL(10,2),
+  thirty_day_high DECIMAL(10,2),
+  thirty_day_low DECIMAL(10,2),
+  recommended_list_price DECIMAL(10,2),
+  psa_graded_price DECIMAL(10,2),
+  last_price_refresh TIMESTAMPTZ,
+  pricing_source TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Price alerts table
+CREATE TABLE price_alerts (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id UUID REFERENCES auth.users(id),
+  card_id UUID REFERENCES cards(id) ON DELETE CASCADE,
+  target_percent_change DECIMAL(5,2) DEFAULT 10.0,
+  direction TEXT DEFAULT 'both' CHECK (direction IN ('up', 'down', 'both')),
+  last_checked_price DECIMAL(10,2),
+  triggered BOOLEAN DEFAULT FALSE,
+  triggered_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Enable Row Level Security
+ALTER TABLE cards ENABLE ROW LEVEL SECURITY;
+ALTER TABLE price_alerts ENABLE ROW LEVEL SECURITY;
+
+-- RLS Policies
+CREATE POLICY "Users can manage own cards"
+  ON cards FOR ALL
+  USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can manage own alerts"
+  ON price_alerts FOR ALL
+  USING (auth.uid() = user_id);
+
+-- Indexes for performance
+CREATE INDEX idx_cards_user ON cards(user_id);
+CREATE INDEX idx_cards_sport ON cards(sport);
+CREATE INDEX idx_cards_watchlist ON cards(is_watchlist) WHERE is_watchlist = TRUE;
+CREATE INDEX idx_cards_owned ON cards(is_owned) WHERE is_owned = TRUE;
+CREATE INDEX idx_cards_review ON cards(needs_review) WHERE needs_review = TRUE;
+CREATE INDEX idx_cards_player ON cards(player_name);
+CREATE INDEX idx_alerts_card ON price_alerts(card_id);
+CREATE INDEX idx_alerts_triggered ON price_alerts(triggered) WHERE triggered = FALSE;
+
+-- Updated timestamp trigger
+CREATE OR REPLACE FUNCTION update_updated_at()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.updated_at = NOW();
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER cards_updated_at
+  BEFORE UPDATE ON cards
+  FOR EACH ROW
+  EXECUTE FUNCTION update_updated_at();
