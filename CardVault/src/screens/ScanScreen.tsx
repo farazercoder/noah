@@ -11,7 +11,6 @@ import {
 } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import * as ImagePicker from 'expo-image-picker';
-import * as FileSystem from 'expo-file-system';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { useCollection } from '../context/CollectionContext';
@@ -78,13 +77,8 @@ export function ScanScreen() {
       for (const asset of result.assets) {
         let base64 = asset.base64;
 
-        // If no base64, read the file
-        if (!base64 && asset.uri) {
-          const fileData = await FileSystem.readAsStringAsync(asset.uri, {
-            encoding: 'base64' as any,
-          });
-          base64 = fileData;
-        }
+        // If no base64 from picker, skip this asset
+        // (base64: true in picker options should always provide it)
 
         if (base64) {
           const scanResult = await identifyCardsFromImage(base64, 'image/jpeg');
