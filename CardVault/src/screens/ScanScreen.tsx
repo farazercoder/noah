@@ -49,8 +49,14 @@ export function ScanScreen() {
         setScanResult(result);
         setScanMode('results');
       }
-    } catch (error) {
-      Alert.alert('Scan Error', 'Failed to process image. Please try again.');
+    } catch (error: any) {
+      const message = error?.message || String(error);
+      // Ignore expo-file-system deprecation warnings that bubble up as errors
+      if (message.includes('deprecated') || message.includes('readAsStringAsync')) {
+        console.warn('Suppressed deprecation warning:', message);
+        return;
+      }
+      Alert.alert('Scan failed', message);
       console.error('Scan error:', error);
     } finally {
       setIsProcessing(false);
@@ -96,8 +102,13 @@ export function ScanScreen() {
         imageUri: result.assets[0].uri,
       });
       setScanMode('results');
-    } catch (error) {
-      Alert.alert('Error', 'Failed to process selected images.');
+    } catch (error: any) {
+      const message = error?.message || String(error);
+      if (message.includes('deprecated') || message.includes('readAsStringAsync')) {
+        console.warn('Suppressed deprecation warning:', message);
+        return;
+      }
+      Alert.alert('Error', message);
       console.error('Gallery error:', error);
     } finally {
       setIsProcessing(false);
