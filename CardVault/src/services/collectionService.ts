@@ -1,5 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { supabase } from './supabaseClient';
+import { getSupabase } from './supabaseClient';
 import { CardData, CollectionStats, PriceAlert, SportFilter } from '../types';
 import { generateId, calculateProfitLoss } from '../utils/helpers';
 
@@ -238,6 +238,9 @@ export async function checkAlerts(cards: CardData[]): Promise<PriceAlert[]> {
  * Sync local collection to Supabase
  */
 export async function syncToSupabase(): Promise<void> {
+  const supabase = getSupabase();
+  if (!supabase) return;
+
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return;
 
@@ -261,6 +264,9 @@ export async function syncToSupabase(): Promise<void> {
  * Pull cards from Supabase to local
  */
 export async function syncFromSupabase(): Promise<void> {
+  const supabase = getSupabase();
+  if (!supabase) return;
+
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return;
 

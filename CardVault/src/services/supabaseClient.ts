@@ -1,16 +1,32 @@
-import { createClient } from '@supabase/supabase-js';
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { API_KEYS } from '../utils/constants';
 
-export const supabase = createClient(
-  API_KEYS.SUPABASE_URL,
-  API_KEYS.SUPABASE_ANON_KEY,
-  {
+let _supabase: SupabaseClient | null = null;
+
+/**
+ * Get the Supabase client. Returns null if credentials aren't configured.
+ * Lazy-initialized to avoid fetch errors on startup when using placeholder keys.
+ */
+export function getSupabase(): SupabaseClient | null {
+  if (_supabase) return _supabase;
+
+  const url = API_KEYS.SUPABASE_URL;
+  const key = API_KEYS.SUPABASE_ANON_KEY;
+
+  // Don't create client with placeholder values
+  if (!url || !key || url.includes('YOUR_') || key.includes('YOUR_')) {
+    return null;
+  }
+
+  _supabase = createClient(url, key, {
     auth: {
       persistSession: true,
       autoRefreshToken: true,
     },
-  }
-);
+  });
+
+  return _supabase;
+}
 
 /**
  * Supabase table schema (for reference — run this SQL in Supabase dashboard):
