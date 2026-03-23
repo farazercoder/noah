@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import * as ImagePicker from 'expo-image-picker';
+import { File } from 'expo-file-system';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { useCollection } from '../context/CollectionContext';
@@ -36,26 +37,25 @@ export function ScanScreen() {
 
     try {
       setIsProcessing(true);
+      // Don't pass base64: true — it uses the deprecated expo-file-system API in SDK 54
       const photo = await cameraRef.current.takePictureAsync({
-        base64: true,
         quality: 0.8,
       });
 
       setCapturedImage(photo.uri);
 
-      if (photo.base64) {
-        const result = await identifyCardsFromImage(photo.base64, 'image/jpeg');
+      // Read base64 using the new File API
+      const file = new File(photo.uri);
+      const base64 = await file.base64();
+
+      if (base64) {
+        const result = await identifyCardsFromImage(base64, 'image/jpeg');
         result.imageUri = photo.uri;
         setScanResult(result);
         setScanMode('results');
       }
     } catch (error: any) {
       const message = error?.message || String(error);
-      // Ignore expo-file-system deprecation warnings that bubble up as errors
-      if (message.includes('deprecated') || message.includes('readAsStringAsync')) {
-        console.warn('Suppressed deprecation warning:', message);
-        return;
-      }
       Alert.alert('Scan failed', message);
       console.error('Scan error:', error);
     } finally {
@@ -68,7 +68,6 @@ export function ScanScreen() {
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
         quality: 0.8,
-        base64: true,
         allowsMultipleSelection: true,
       });
 
@@ -81,10 +80,9 @@ export function ScanScreen() {
       const allFlagged: CardData[] = [];
 
       for (const asset of result.assets) {
-        let base64 = asset.base64;
-
-        // If no base64 from picker, skip this asset
-        // (base64: true in picker options should always provide it)
+        // Read base64 using the new File API (avoids deprecated readAsStringAsync)
+        const file = new File(asset.uri);
+        const base64 = await file.base64();
 
         if (base64) {
           const scanResult = await identifyCardsFromImage(base64, 'image/jpeg');
@@ -104,10 +102,6 @@ export function ScanScreen() {
       setScanMode('results');
     } catch (error: any) {
       const message = error?.message || String(error);
-      if (message.includes('deprecated') || message.includes('readAsStringAsync')) {
-        console.warn('Suppressed deprecation warning:', message);
-        return;
-      }
       Alert.alert('Error', message);
       console.error('Gallery error:', error);
     } finally {
